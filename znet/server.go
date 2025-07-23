@@ -1,6 +1,7 @@
 package znet
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -14,6 +15,15 @@ type Server struct { // IServer 接口实现 服务器模块
 	Port      int    // 服务器监听的端口
 }
 
+func CallBackToClient(conn *net.TCPConn, date []byte, cnt int) error {
+	// 回显业务
+	_, err := conn.Write(date[:cnt])
+	if err != nil {
+		slog.Error(fmt.Sprintf("call back to client error: %v", err))
+		return errors.New("CallBackToClientError")
+	}
+	return nil
+}
 func (s *Server) Start() {
 	slog.Info(fmt.Sprintf("[Start] Server Listenner at IP :%s,Port %d", s.IP, s.Port))
 	// 1 获取TCP Addr
@@ -30,7 +40,7 @@ func (s *Server) Start() {
 	}
 	slog.Info("start server success")
 	// 3 阻塞等待客户端连接，处理客户端链接业务
-
+	var cid uint32
 	for {
 		conn, err := listenner.AcceptTCP()
 		if err != nil {
@@ -38,22 +48,11 @@ func (s *Server) Start() {
 			continue
 		}
 
-		//已经与客户端建立间接
-		go func() {
-			for {
-				buf := make([]byte, 512)
-				bufLen, err := conn.Read(buf)
-				if err != nil {
-					slog.Error("recv buf err:", err)
-					continue
-				}
+		//已经与客户端建立间接 处理新连接的业务方法
+		dealConn := NewConnection(conn, cid, CallBackToClient)
+		cid++
 
-				if _, err := conn.Write(buf[:bufLen]); err != nil {
-					slog.Error("wirte back buf err:", err)
-					continue
-				}
-			}
-		}()
+		go dealConn.Start()
 	}
 }
 
