@@ -9,11 +9,12 @@ import (
 )
 
 type Server struct { // IServer 接口实现 服务器模块
-	Name      string         // 服务器名称
-	IPVersion string         // 服务器绑定IP版本
-	IP        string         // 服务器监听的IP
-	Port      int            // 服务器监听的端口
-	Router    ziface.IRouter // 添加Router
+	Name       string            // 服务器名称
+	IPVersion  string            // 服务器绑定IP版本
+	IP         string            // 服务器监听的IP
+	Port       int               // 服务器监听的端口
+	Router     ziface.IRouter    // 添加Router
+	MsgHandler ziface.IMsgHandle // 多路由管理
 }
 
 func CallBackToClient(conn *net.TCPConn, date []byte, cnt int) error {
@@ -50,7 +51,7 @@ func (s *Server) Start() {
 		}
 
 		//已经与客户端建立间接 处理新连接的业务方法
-		dealConn := NewConnection(conn, cid, s.Router)
+		dealConn := NewConnection(conn, cid, s.MsgHandler)
 		cid++
 
 		go dealConn.Start()
@@ -69,15 +70,16 @@ func (s *Server) Server() {
 	select {}
 }
 
-func (s *Server) AddRouter(router ziface.IRouter) {
-	s.Router = router
+func (s *Server) AddRouter(msgId uint32, router ziface.IRouter) {
+	s.MsgHandler.AddRouter(msgId, router)
 }
 func NewServer(name string) ziface.IServer {
 	s := &Server{
-		Name:      name,
-		IPVersion: "tcp4",
-		IP:        "0.0.0.0",
-		Port:      80,
+		Name:       name,
+		IPVersion:  "tcp4",
+		IP:         "0.0.0.0",
+		Port:       80,
+		MsgHandler: NewMsgHandle(),
 	}
 	return s
 }

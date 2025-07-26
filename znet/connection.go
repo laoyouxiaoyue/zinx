@@ -24,17 +24,17 @@ type Connection struct {
 	ExitChan chan bool
 
 	// 当前链接处理方法
-	Router ziface.IRouter
+	MsgHandler ziface.IMsgHandle
 }
 
 // NewConnection 初始化链接模块
-func NewConnection(conn *net.TCPConn, connID uint32, router ziface.IRouter) *Connection {
+func NewConnection(conn *net.TCPConn, connID uint32, MsgHandler ziface.IMsgHandle) *Connection {
 	c := &Connection{
-		Conn:     conn,
-		ConnID:   connID,
-		Router:   router,
-		isClosed: false,
-		ExitChan: make(chan bool),
+		Conn:       conn,
+		ConnID:     connID,
+		MsgHandler: MsgHandler,
+		isClosed:   false,
+		ExitChan:   make(chan bool),
 	}
 	return c
 }
@@ -76,9 +76,7 @@ func (c *Connection) StartReader() {
 			msg:  msg,
 		}
 		go func(req ziface.IRequest) {
-			c.Router.PreHandle(req)
-			c.Router.Handle(req)
-			c.Router.PostHandle(req)
+			c.MsgHandler.DoMsgHandler(req)
 		}(req)
 
 	}
