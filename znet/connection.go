@@ -1,7 +1,9 @@
 package znet
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"zinx/ziface"
@@ -43,16 +45,35 @@ func (c *Connection) StartReader() {
 	defer c.Stop()
 
 	for {
-		buf := make([]byte, 512)
-		_, err := c.Conn.Read(buf)
+		//buf := make([]byte, 512)
+		//_, err := c.Conn.Read(buf)
+		//if err != nil {
+		//	slog.Error(fmt.Sprintf("Reader Goroutine [%d]  recv error [%s]", c.ConnID, err))
+		//	break
+		//}
+
+		dp := NewDataPack()
+
+		headdata := make([]byte, dp.GetHeadLen())
+
+		_, err := io.ReadFull(c.Conn, headdata)
 		if err != nil {
-			slog.Error(fmt.Sprintf("Reader Goroutine [%d]  recv error [%s]", c.ConnID, err))
-			break
+			return
 		}
+		msg, err := dp.Unpack(headdata)
 		// 当前request
+		if msg.GetDataLen() > 0 {
+			data := make([]byte, msg.GetDataLen())
+			_, err := io.ReadFull(c.GetTCPConnection(), data)
+			if err != nil {
+				slog.Error("read data err:", err)
+				break
+			}
+			msg.SetData(data)
+		}
 		req := &Request{
 			conn: c,
-			data: buf,
+			msg:  msg,
 		}
 		go func(req ziface.IRequest) {
 			c.Router.PreHandle(req)
@@ -69,6 +90,24 @@ func (c *Connection) Start() {
 	go c.StartReader()
 }
 
+func (c *Connection) SendMsg(msgId uint32, data []byte) error {
+	if c.isClosed {
+		return errors.New("ConnectionClosedErr")
+	}
+	dp := NewDataPack()
+
+	pack, err := dp.Pack(NewMsgPackage(msgId, data))
+	if err != nil {
+		slog.Error("pack err msg id =:", msgId)
+		return errors.New("PackMsgErr")
+	}
+	_, err = c.Conn.Write(pack)
+	if err != nil {
+		slog.Error("conn write err msg id =:", msgId)
+		return errors.New("WriteMsgErr")
+	}
+	return nil
+}
 func (c *Connection) Stop() {
 	slog.Info(fmt.Sprint("Connection Stop ", c.ConnID))
 

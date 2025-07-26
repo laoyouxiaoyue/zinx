@@ -30,13 +30,13 @@ func (s *Server) Start() {
 	// 1 获取TCP Addr
 	addr, err := net.ResolveTCPAddr(s.IPVersion, fmt.Sprintf("%s:%d", s.IP, s.Port))
 	if err != nil {
-		slog.Error("resolve tcp addr err:", err)
+		slog.Error("resolve tcp addr err")
 		return
 	}
 	// 2 监听服务器地址
 	listenner, err := net.ListenTCP(s.IPVersion, addr)
 	if err != nil {
-		slog.Error("listen tcp err:", err)
+		slog.Error("listen tcp err")
 		return
 	}
 	slog.Info("start server success")
@@ -45,7 +45,7 @@ func (s *Server) Start() {
 	for {
 		conn, err := listenner.AcceptTCP()
 		if err != nil {
-			slog.Error("accept err:", err)
+			slog.Error("accept err:")
 			continue
 		}
 

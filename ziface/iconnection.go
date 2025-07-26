@@ -20,7 +20,7 @@ type IConnection interface {
 	RemoteAddr() net.Addr
 
 	// Send 发送窗口
-	Send(date []byte) error
+	SendMsg(msgId uint32, data []byte) error
 }
 
 type HandleFunc func(*net.TCPConn, []byte, int) error
