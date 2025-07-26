@@ -8,7 +8,7 @@ import (
 type MsgHandle struct {
 	// id对应Router处理方法
 	Apis map[uint32]ziface.IRouter
-}
+}  
 
 func NewMsgHandle() *MsgHandle {
 	return &MsgHandle{

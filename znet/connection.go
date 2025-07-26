@@ -23,6 +23,8 @@ type Connection struct {
 	// 告知当前链接已经退出/停止 channel
 	ExitChan chan bool
 
+	//消息通道
+	MsgChan chan []byte
 	// 当前链接处理方法
 	MsgHandler ziface.IMsgHandle
 }
@@ -33,17 +35,37 @@ func NewConnection(conn *net.TCPConn, connID uint32, MsgHandler ziface.IMsgHandl
 		Conn:       conn,
 		ConnID:     connID,
 		MsgHandler: MsgHandler,
+		MsgChan:    make(chan []byte, 1024),
 		isClosed:   false,
 		ExitChan:   make(chan bool),
 	}
 	return c
 }
 
-// 读业务
+// StartWriter 写业务
+func (c *Connection) StartWriter() {
+	slog.Info(fmt.Sprintf("Writer Goroutine is starting [%d]", c.ConnID))
+	defer slog.Info(fmt.Sprintf("Writer Goroutine is stopping [%d]", c.ConnID))
+
+	for {
+		select {
+		case <-c.ExitChan:
+			return
+		case data := <-c.MsgChan:
+			_, err := c.Conn.Write(data)
+			if err != nil {
+				slog.Error(fmt.Sprintf("Writer Goroutine Write err [%s]", err.Error()))
+			}
+
+		}
+	}
+}
+
+// StartReader 读业务
 func (c *Connection) StartReader() {
 	slog.Info(fmt.Sprintf("Reader Goroutine is starting [%d]", c.ConnID))
 	defer c.Stop()
-
+	defer slog.Info(fmt.Sprintf("Reader Goroutine is stopping [%d]", c.ConnID))
 	for {
 		//buf := make([]byte, 512)
 		//_, err := c.Conn.Read(buf)
@@ -86,6 +108,7 @@ func (c *Connection) Start() {
 	//启动读
 
 	go c.StartReader()
+	go c.StartWriter()
 }
 
 func (c *Connection) SendMsg(msgId uint32, data []byte) error {
@@ -99,11 +122,7 @@ func (c *Connection) SendMsg(msgId uint32, data []byte) error {
 		slog.Error("pack err msg id =:", msgId)
 		return errors.New("PackMsgErr")
 	}
-	_, err = c.Conn.Write(pack)
-	if err != nil {
-		slog.Error("conn write err msg id =:", msgId)
-		return errors.New("WriteMsgErr")
-	}
+	c.MsgChan <- pack
 	return nil
 }
 func (c *Connection) Stop() {
@@ -119,9 +138,10 @@ func (c *Connection) Stop() {
 	if err != nil {
 		return
 	}
-
+	c.ExitChan <- true
 	// 回收资源
 	close(c.ExitChan)
+	close(c.MsgChan)
 }
 
 func (c *Connection) GetTCPConnection() *net.TCPConn {
