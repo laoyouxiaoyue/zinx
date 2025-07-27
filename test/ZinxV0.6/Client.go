@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// 1 连接
-	conn, err := net.Dial("tcp", "127.0.0.1:7777")
+	conn, err := net.Dial("tcp", "127.0.0.1:80")
 	if err != nil {
 		slog.Error(fmt.Sprint("conn err:", err))
 		panic(err)
