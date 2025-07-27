@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"zinx/utils"
 	"zinx/ziface"
 )
 
@@ -97,9 +98,13 @@ func (c *Connection) StartReader() {
 			conn: c,
 			msg:  msg,
 		}
-		go func(req ziface.IRequest) {
-			c.MsgHandler.DoMsgHandler(req)
-		}(req)
+		if utils.GlobalObject.WorkerPoolSize > 0 {
+			c.MsgHandler.SendMsgToTaskQueue(req)
+		} else {
+			go func(req ziface.IRequest) {
+				c.MsgHandler.DoMsgHandler(req)
+			}(req)
+		}
 
 	}
 }

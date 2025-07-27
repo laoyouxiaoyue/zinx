@@ -17,9 +17,11 @@ type GlobalObj struct {
 
 	// Zinx
 
-	Version       string // Zinx版本
-	MaxConn       int    //允许最大连接数
-	MaxPacketSize uint32 // 数据包最大值
+	Version          string // Zinx版本
+	MaxConn          int    //允许最大连接数
+	MaxPacketSize    uint32 // 数据包最大值
+	WorkerPoolSize   uint32 // 当前业务工作Woker池的Goroutine数量
+	MaxWorkerTaskLen uint32 // Zinx框架允许最大的Woker数量
 
 }
 
@@ -41,12 +43,14 @@ var GlobalObject *GlobalObj
 func init() {
 	// 默认文件
 	GlobalObject = &GlobalObj{
-		Host:          "0.0.0.0",
-		TcpPort:       8888,
-		Name:          "zinx",
-		Version:       "V0.4",
-		MaxConn:       1000,
-		MaxPacketSize: 4096,
+		Host:             "0.0.0.0",
+		TcpPort:          8888,
+		Name:             "zinx",
+		Version:          "V0.4",
+		MaxConn:          1000,
+		MaxPacketSize:    4096,
+		WorkerPoolSize:   10,
+		MaxWorkerTaskLen: 1024,
 	}
 
 	// 读取用户定义参数

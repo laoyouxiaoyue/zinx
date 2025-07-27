@@ -29,6 +29,10 @@ func CallBackToClient(conn *net.TCPConn, date []byte, cnt int) error {
 func (s *Server) Start() {
 	slog.Info(fmt.Sprintf("[Start] Server Listenner at IP :%s,Port %d", s.IP, s.Port))
 	// 1 获取TCP Addr
+
+	//开启消息队列
+	s.MsgHandler.StartWorkerPool()
+
 	addr, err := net.ResolveTCPAddr(s.IPVersion, fmt.Sprintf("%s:%d", s.IP, s.Port))
 	if err != nil {
 		slog.Error("resolve tcp addr err")
@@ -56,6 +60,7 @@ func (s *Server) Start() {
 
 		go dealConn.Start()
 	}
+
 }
 
 func (s *Server) Stop() {
@@ -68,6 +73,7 @@ func (s *Server) Server() {
 
 	//阻塞状态
 	select {}
+
 }
 
 func (s *Server) AddRouter(msgId uint32, router ziface.IRouter) {
@@ -78,7 +84,7 @@ func NewServer(name string) ziface.IServer {
 		Name:       name,
 		IPVersion:  "tcp4",
 		IP:         "0.0.0.0",
-		Port:       80,
+		Port:       7777,
 		MsgHandler: NewMsgHandle(),
 	}
 	return s
