@@ -28,11 +28,14 @@ type Connection struct {
 	MsgChan chan []byte
 	// 当前链接处理方法
 	MsgHandler ziface.IMsgHandle
+
+	TcpServer ziface.IServer
 }
 
 // NewConnection 初始化链接模块
-func NewConnection(conn *net.TCPConn, connID uint32, MsgHandler ziface.IMsgHandle) *Connection {
+func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, MsgHandler ziface.IMsgHandle) *Connection {
 	c := &Connection{
+		TcpServer:  server,
 		Conn:       conn,
 		ConnID:     connID,
 		MsgHandler: MsgHandler,
@@ -40,6 +43,7 @@ func NewConnection(conn *net.TCPConn, connID uint32, MsgHandler ziface.IMsgHandl
 		isClosed:   false,
 		ExitChan:   make(chan bool),
 	}
+	c.TcpServer.GetConnManager().Add(c)
 	return c
 }
 
@@ -114,6 +118,8 @@ func (c *Connection) Start() {
 
 	go c.StartReader()
 	go c.StartWriter()
+
+	c.TcpServer.CallOnConnStart(c)
 }
 
 func (c *Connection) SendMsg(msgId uint32, data []byte) error {
@@ -138,6 +144,7 @@ func (c *Connection) Stop() {
 	}
 	c.isClosed = true
 
+	c.TcpServer.CallOnConnStop(c)
 	// 关闭
 	err := c.Conn.Close()
 	if err != nil {
@@ -147,6 +154,8 @@ func (c *Connection) Stop() {
 	// 回收资源
 	close(c.ExitChan)
 	close(c.MsgChan)
+	c.TcpServer.GetConnManager().Remove(c)
+
 }
 
 func (c *Connection) GetTCPConnection() *net.TCPConn {

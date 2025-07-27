@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"zinx/utils"
 	"zinx/ziface"
 )
 
 type Server struct { // IServer 接口实现 服务器模块
-	Name       string            // 服务器名称
-	IPVersion  string            // 服务器绑定IP版本
-	IP         string            // 服务器监听的IP
-	Port       int               // 服务器监听的端口
-	Router     ziface.IRouter    // 添加Router
-	MsgHandler ziface.IMsgHandle // 多路由管理
+	Name        string                        // 服务器名称
+	IPVersion   string                        // 服务器绑定IP版本
+	IP          string                        // 服务器监听的IP
+	Port        int                           // 服务器监听的端口
+	Router      ziface.IRouter                // 添加Router
+	MsgHandler  ziface.IMsgHandle             // 多路由管理
+	ConnManager ziface.IConnManager           //链接管理
+	OnConnStart func(conn ziface.IConnection) // 启动HOOK函数
+	OnConnStop  func(conn ziface.IConnection) // 停止HOOK函数
 }
 
 func CallBackToClient(conn *net.TCPConn, date []byte, cnt int) error {
@@ -53,9 +57,13 @@ func (s *Server) Start() {
 			slog.Error("accept err:")
 			continue
 		}
+		if s.ConnManager.Len() >= utils.GlobalObject.MaxConn {
+			conn.Close()
+			continue
+		}
 
 		//已经与客户端建立间接 处理新连接的业务方法
-		dealConn := NewConnection(conn, cid, s.MsgHandler)
+		dealConn := NewConnection(s, conn, cid, s.MsgHandler)
 		cid++
 
 		go dealConn.Start()
@@ -63,9 +71,13 @@ func (s *Server) Start() {
 
 }
 
+func (s *Server) GetConnManager() ziface.IConnManager {
+	return s.ConnManager
+
+}
 func (s *Server) Stop() {
-	//TODO implement me
-	panic("implement me")
+	slog.Info("stop server success")
+	s.ConnManager.ClearConn()
 }
 
 func (s *Server) Server() {
@@ -81,11 +93,30 @@ func (s *Server) AddRouter(msgId uint32, router ziface.IRouter) {
 }
 func NewServer(name string) ziface.IServer {
 	s := &Server{
-		Name:       name,
-		IPVersion:  "tcp4",
-		IP:         "0.0.0.0",
-		Port:       7777,
-		MsgHandler: NewMsgHandle(),
+		Name:        name,
+		IPVersion:   "tcp4",
+		IP:          "0.0.0.0",
+		Port:        7777,
+		MsgHandler:  NewMsgHandle(),
+		ConnManager: NewConnManager(),
 	}
 	return s
+}
+
+func (s *Server) SetOnConnStart(f func(connection ziface.IConnection)) {
+	s.OnConnStart = f
+}
+func (s *Server) SetOnConnStop(f func(connection ziface.IConnection)) {
+	s.OnConnStop = f
+}
+func (s *Server) CallOnConnStart(connection ziface.IConnection) {
+	if s.OnConnStart != nil {
+		s.OnConnStart(connection)
+	}
+
+}
+func (s *Server) CallOnConnStop(connection ziface.IConnection) {
+	if s.OnConnStop != nil {
+		s.OnConnStop(connection)
+	}
 }
