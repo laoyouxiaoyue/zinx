@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"sync"
 	"zinx/utils"
 	"zinx/ziface"
 )
@@ -30,18 +31,24 @@ type Connection struct {
 	MsgHandler ziface.IMsgHandle
 
 	TcpServer ziface.IServer
+
+	property map[string]interface{}
+
+	propertyLock sync.RWMutex
 }
 
 // NewConnection 初始化链接模块
 func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, MsgHandler ziface.IMsgHandle) *Connection {
 	c := &Connection{
-		TcpServer:  server,
-		Conn:       conn,
-		ConnID:     connID,
-		MsgHandler: MsgHandler,
-		MsgChan:    make(chan []byte, 1024),
-		isClosed:   false,
-		ExitChan:   make(chan bool),
+		TcpServer:    server,
+		Conn:         conn,
+		ConnID:       connID,
+		MsgHandler:   MsgHandler,
+		MsgChan:      make(chan []byte, 1024),
+		isClosed:     false,
+		ExitChan:     make(chan bool),
+		property:     make(map[string]interface{}),
+		propertyLock: sync.RWMutex{},
 	}
 	c.TcpServer.GetConnManager().Add(c)
 	return c
@@ -176,4 +183,30 @@ func (c *Connection) Send(date []byte) error {
 		return err
 	}
 	return nil
+}
+func (c *Connection) SetProperty(key string, value interface{}) {
+	c.propertyLock.Lock()
+	defer c.propertyLock.Unlock()
+	c.property[key] = value
+}
+
+func (c *Connection) GetProperty(key string) (interface{}, error) {
+	c.propertyLock.RLock()
+	defer c.propertyLock.RUnlock()
+	if value, ok := c.property[key]; ok {
+		return value, nil
+	}
+	slog.Info(fmt.Sprintf("GetProperty key [%s] not exists", key))
+	return nil, errors.New("PropertyNotExistsErr")
+}
+func (c *Connection) RemoveProperty(key string) {
+	c.propertyLock.Lock()
+	defer c.propertyLock.Unlock()
+	if _, ok := c.property[key]; ok {
+		delete(c.property, key)
+		return
+	}
+	slog.Info(fmt.Sprintf("RemoveProperty key [%s] not exists", key))
+	return
+
 }
