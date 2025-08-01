@@ -31,9 +31,9 @@ func NewPlayer(conn ziface.IConnection) *Player {
 	return &Player{
 		Pid:  id,
 		Conn: conn,
-		X:    float32(160 + rand.Intn(10)),
+		X:    float32(160 + rand.Intn(50)),
 		Y:    0,
-		Z:    float32(134 + rand.Intn(17)),
+		Z:    float32(134 + rand.Intn(50)),
 		V:    0,
 	}
 }
@@ -43,6 +43,7 @@ func (p *Player) SendMsg(msgId uint32, data proto.Message) {
 		slog.Error(err.Error())
 		return
 	}
+	slog.Info(fmt.Sprintf("data : %v", data))
 	if p.Conn == nil {
 		slog.Error("ConnNilErr")
 		return
@@ -55,7 +56,7 @@ func (p *Player) SendMsg(msgId uint32, data proto.Message) {
 
 func (p *Player) SyncPid() {
 	data := &pb.SyncPid{
-		Pid: int32(p.Pid),
+		Pid: p.Pid,
 	}
 	p.SendMsg(1, data)
 }
@@ -169,7 +170,7 @@ func (p *Player) UpdataPos(x float32, y float32, z float32, v float32) {
 }
 
 func (p *Player) GetSurroudingPlayers() []*Player {
-	pids := WorldManagerObj.AoiMgr.GetPidsByPos(p.X, p.Y)
+	pids := WorldManagerObj.AoiMgr.GetPidsByPos(p.X, p.Z)
 	player := make([]*Player, 0)
 	for _, pid := range pids {
 		player = append(player, WorldManagerObj.GetPlayer(int32(pid)))
